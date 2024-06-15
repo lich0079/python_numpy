@@ -9,7 +9,19 @@ import sys  # To find out the script name (in argv[0])
 import backtrader as bt
 import backtrader.feeds as btfeeds
 
-data = btfeeds.GenericCSVData(
+
+from backtrader.feeds import GenericCSVData
+
+class MyData(GenericCSVData):
+
+    # Add a 'pe' line to the inherited ones from the base class
+    lines = ('ma7','ma25','ma50',)
+
+    # openinterest in GenericCSVData has index 7 ... add 1
+    # add the parameter to the parameters inherited from the base class
+    params = (('ma7', 8),('ma25', 9),('ma50', 10),)
+
+data = MyData(
     dataname='btc_quote_df2.csv',
 
     fromdate=datetime.datetime(2024, 3, 1),
@@ -20,13 +32,40 @@ data = btfeeds.GenericCSVData(
     dtformat=('%Y-%m-%d'),
 
     datetime=6,
-    high=1,
-    low=2,
-    open=3,
+    high=2,
+    low=3,
+    open=1,
     close=4,
     volume=5,
-    openinterest=-1
+    openinterest=-1,
+    ma7=7,
+    ma25=8,
+    ma50=9
 )
+
+class TestMyDataStrategy(bt.Strategy):
+
+    def log(self, txt, dt=None):
+        ''' Logging function for this strategy'''
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def __init__(self):
+        # Keep a reference to the "close" line in the data[0] dataseries
+        self.dataclose = self.datas[0].close
+
+    def next(self):
+        # Simply log the closing price of the series from the reference
+        # self.log('Close, %.2f' % self.dataclose[0])
+        if self.datas[0].close[0] < self.datas[0].close[-1]:
+            # current close less than previous close
+
+            if self.datas[0].close[-1] < self.datas[0].close[-2]:
+                # previous close less than the previous close
+
+                # BUY, BUY, BUY!!! (with all possible default parameters)
+                self.log('BUY CREATE, %.2f %.2f %.2f' % (self.datas[0].ma7[0],  self.datas[0].ma25[0],  self.datas[0].ma50[0]))
+                self.buy()
 
 # Create a Stratey
 class TestStrategy(bt.Strategy):
@@ -85,7 +124,7 @@ if __name__ == '__main__':
     cerebro = bt.Cerebro()
 
     # Add a strategy
-    cerebro.addstrategy(SmaCross)
+    cerebro.addstrategy(TestMyDataStrategy)
 
     # Add the Data Feed to Cerebro
     cerebro.adddata(data)
